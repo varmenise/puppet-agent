@@ -1,0 +1,36 @@
+# Docker image for Puppet Agent
+
+FROM varmenise/docker-sshd
+MAINTAINER Valentina Armenise <varmenise@cloudbees.com>
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-7-jdk \
+    curl \
+    ntp \
+    ntpdate \
+    git \
+    puppet
+
+# Create password for root
+RUN echo "root:root" | chpasswd
+RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
+RUN sed -ri 's/#UsePAM no/UsePAM no/g' /etc/ssh/sshd_config
+
+# Create Jenkins user
+RUN useradd jenkins
+RUN echo "jenkins:jenkins" | chpasswd
+RUN echo "jenkins    ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+# Make directories for [masters] JENKINS_HOME, jenkins.war lib and [slaves] remote FS root, ssh privilege separation directory
+RUN mkdir  /home/jenkins
+
+# Set permissions
+RUN chown -R jenkins:jenkins /home/jenkins
+ADD ./puppet.sh /usr/local/bin/puppet.sh
+ADD ./puppet.conf /etc/puppet/puppet.conf
+RUN chmod +x /usr/local/bin/puppet.sh
+
+
+RUN git clone https://github.com/fbelzunc/tomcat7-module.git /etc/puppet/modules/tomcat7-module
+RUN git clone https://github.com/fbelzunc/deploy-petclinic.git /etc/puppet/modules/deploy-petclinic
+RUN service puppet stop
+
